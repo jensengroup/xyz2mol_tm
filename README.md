@@ -1,4 +1,4 @@
-# xyz2mol for Transition Metal Complexes
+# xyz2mol for transition metal complexes
 
 This is is a working in progress repo where data and code will be gradually updated as the preprint goes through review.
 
