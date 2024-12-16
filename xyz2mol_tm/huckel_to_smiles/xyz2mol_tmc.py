@@ -105,11 +105,12 @@ def shell(cmd, shell=False):
 
 
 def fix_NO2(smiles):
-    """
-    Localizes nitro groups that have been assigned a charge of -2 (neutral
-    Nitrogen bound to two negatively charged Oxygen atoms). These groups are
-    changed to reflect the correct neutral configuration of a nitro group. The
-    oxidation state on the transition metal is changed accordingly.
+    """Localizes nitro groups that have been assigned a charge of -2 (neutral
+    Nitrogen bound to two negatively charged Oxygen atoms).
+
+    These groups are changed to reflect the correct neutral
+    configuration of a nitro group. The oxidation state on the
+    transition metal is changed accordingly.
     """
     m = Chem.MolFromSmiles(smiles)
     emol = Chem.RWMol(m)
@@ -141,10 +142,11 @@ def fix_NO2(smiles):
 
 
 def fix_equivalent_Os(smiles):
-    """
-    Localizes and fixes where a neutral atom is coordinating to the metal but
-    connected ro a negatively charged atom through resonane. The charge is
-    moved to the coordinating atom and charges fixed accordingly.
+    """Localizes and fixes where a neutral atom is coordinating to the metal
+    but connected ro a negatively charged atom through resonane.
+
+    The charge is moved to the coordinating atom and charges fixed
+    accordingly.
     """
     m = Chem.MolFromSmiles(smiles)
     emol = Chem.RWMol(m)
@@ -181,13 +183,13 @@ def fix_equivalent_Os(smiles):
 
 
 def get_proposed_ligand_charge(ligand_mol, cutoff=-10):
-    """
-    Runs an extended Hückel calculation for the ligand defined in ligand_mol. A
-    suggested charge is found by filling electrons in orbitals <-10eV and
-    omparing with total number of valence electrons. If charge is >= 1 (<-1)
-    and the LUMO (HOMO) is low (high) in energy, two additional electrons are
-    added (removed).
-    The suggested charge is returned.
+    """Runs an extended Hückel calculation for the ligand defined in
+    ligand_mol.
+
+    A suggested charge is found by filling electrons in orbitals <-10eV
+    and omparing with total number of valence electrons. If charge is >=
+    1 (<-1) and the LUMO (HOMO) is low (high) in energy, two additional
+    electrons are added (removed). The suggested charge is returned.
     """
     valence_electrons = 0
     passed, result = rdEHTTools.RunMol(ligand_mol)
@@ -218,12 +220,13 @@ def get_proposed_ligand_charge(ligand_mol, cutoff=-10):
 
 
 def get_basic_mol(xyz_file, overall_charge):
-    """
-    A basic mol-object (that can be usedto do an extended Hückel
-    calculation is constructed based on the adjacency matrix evaluated
-    from the xyz-coordinates. All bonds are single bonds, and charges are only
-    asigned if necessary to work with it, i.e. a Nitrogen with four neihbors
-    gets a +1 charge, Boron with 4 neighbors gets a -1 charge and oxygen with
+    """A basic mol-object (that can be usedto do an extended Hückel calculation
+    is constructed based on the adjacency matrix evaluated from the xyz-
+    coordinates.
+
+    All bonds are single bonds, and charges are only asigned if
+    necessary to work with it, i.e. a Nitrogen with four neihbors gets a
+    +1 charge, Boron with 4 neighbors gets a -1 charge and oxygen with
     three neighbors gets a +1 charge.
     """
     atoms, _, xyz_coords = read_xyz_file(xyz_file)
@@ -315,12 +318,13 @@ def lig_checks(lig_mol, coordinating_atoms):
 
 
 def get_lig_mol(mol, charge, coordinating_atoms):
-    """
-    A sanitizable mol object is created for the ligand, taking into account the
-    checks defined in lig_checks. We try different charge settings and settings
-    where carbenes are allowed/not allowed in case no perfect solution (no
-    partial charges on other than the coordinating atoms) can be found. Finally
-    best found solution based on criteria in lig_checks is returned.
+    """A sanitizable mol object is created for the ligand, taking into account
+    the checks defined in lig_checks.
+
+    We try different charge settings and settings where carbenes are
+    allowed/not allowed in case no perfect solution (no partial charges
+    on other than the coordinating atoms) can be found. Finally best
+    found solution based on criteria in lig_checks is returned.
     """
 
     atoms = [a.GetAtomicNum() for a in mol.GetAtoms()]

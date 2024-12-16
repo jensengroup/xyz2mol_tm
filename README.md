@@ -1,7 +1,5 @@
 # xyz2mol for Transition Metal Complexes
 
-Repo for the preprint: SUPER_AWESOME_PAPER
-
 This is is a working in progress repo where data and code will be gradually updated as the preprint goes through review.
 
 ## [SMILES_csvs](./SMILES_csvs/)
