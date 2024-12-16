@@ -255,15 +255,8 @@ def fix_NO(m):
 
 
 def fix_aromatic_tertn(m):
-    tertns = [
-        x[0]
-        for x in m.GetSubstructMatches(
-            Chem.MolFromSmarts("[nD3+0;!$(n" + TM_nums + ")]")
-        )
-    ]
-    arings = list(m.GetSubstructMatches(Chem.MolFromSmarts("a1aaaa1"))) + list(
-        m.GetSubstructMatches(Chem.MolFromSmarts("a1aaaaa1"))
-    )
+    tertns = [x[0] for x in m.GetSubstructMatches(Chem.MolFromSmarts("[nD3+0;!$(n" + TM_nums + ")]"))]
+    arings = list(m.GetSubstructMatches(Chem.MolFromSmarts("a1aaaa1"))) + list(m.GetSubstructMatches(Chem.MolFromSmarts("a1aaaaa1")))
     tm = m.GetSubstructMatches(Chem.MolFromSmarts(TM_nums))[0][0]
 
     for ar in arings:
@@ -311,9 +304,7 @@ def covalent2haptic(mol, sanitize=True, fix_charge=True, fix_counter_charge=True
         other_atom_ids = [b.GetOtherAtomIdx(tm_idx[0]) for b in bonds]
         # cluster bonds
         adj = Chem.GetAdjacencyMatrix(mol)
-        for i in [
-            a.GetIdx() for a in mol.GetAtoms() if a.GetIdx() not in other_atom_ids
-        ]:
+        for i in [a.GetIdx() for a in mol.GetAtoms() if a.GetIdx() not in other_atom_ids]:
             adj[:, i] = 0
             adj[i, :] = 0
         graph = {i: np.nonzero(row)[0].tolist() for i, row in enumerate(adj)}
@@ -328,11 +319,7 @@ def covalent2haptic(mol, sanitize=True, fix_charge=True, fix_counter_charge=True
             checked.update(visited)
         # if a cluster is longer then 1, then it is a haptic bond
         for cluster in clusters:
-            if (
-                len(cluster) == 2
-                and mol.GetBondBetweenAtoms(cluster[0], cluster[1]).GetBondType()
-                == Chem.BondType.SINGLE
-            ):
+            if len(cluster) == 2 and mol.GetBondBetweenAtoms(cluster[0], cluster[1]).GetBondType() == Chem.BondType.SINGLE:
                 continue
             if len(cluster) > 1:
                 for c_idx in cluster:
@@ -346,23 +333,10 @@ def covalent2haptic(mol, sanitize=True, fix_charge=True, fix_counter_charge=True
                 if fix_charge:
                     if len(cluster) % 2 == 1:
                         # look if there is already a negative charge and skip cluster
-                        if (
-                            sum(
-                                [
-                                    a.GetFormalCharge()
-                                    for a in mol.GetAtoms()
-                                    if a.GetIdx() in cluster
-                                ]
-                            )
-                            < 0
-                        ):
+                        if sum([a.GetFormalCharge() for a in mol.GetAtoms() if a.GetIdx() in cluster]) < 0:
                             continue
                         # find atom with least neighbors and set negative charge there
-                        degrees = [
-                            a.GetDegree()
-                            for a in mol.GetAtoms()
-                            if a.GetIdx() in cluster
-                        ]
+                        degrees = [a.GetDegree() for a in mol.GetAtoms() if a.GetIdx() in cluster]
                         min_degree_idx = cluster[np.argmin(degrees)]
                         atom = mol.GetAtomWithIdx(min_degree_idx)
                         atom.SetFormalCharge(-1)
@@ -438,12 +412,7 @@ def fix_smiles(smi):
 
     for (i, tm), bt in zip(tm_bonds, bond_types):
         nbr = m.GetAtomWithIdx(i)
-        if (
-            pt.GetDefaultValence(nbr.GetAtomicNum())
-            - nbr.GetExplicitValence()
-            + nbr.GetFormalCharge()
-            <= 0
-        ):
+        if pt.GetDefaultValence(nbr.GetAtomicNum()) - nbr.GetExplicitValence() + nbr.GetFormalCharge() <= 0:
             continue  # dative bond
 
         charge = bond2charge[bt]
@@ -539,9 +508,7 @@ def main(args):
         df = df[:100]
 
     results = []
-    for i, (ID, s, formula) in enumerate(
-        zip(df["IDs"], df["smiles_csd_api"], df["formula_heaviest_fragment"])
-    ):
+    for i, (ID, s, formula) in enumerate(zip(df["IDs"], df["smiles_csd_api"], df["formula_heaviest_fragment"])):
         tm_comp, counter_ions = get_smiles(s)
         if not tm_comp:
             results.append((ID, s, "fail", "fail", formula))
@@ -567,10 +534,7 @@ def main(args):
     )
 
     (
-        df_results[
-            (df_results["TM CSD smiles"] != "fail")
-            & (df_results["new TM smiles"] == "fail")
-        ].shape,
+        df_results[(df_results["TM CSD smiles"] != "fail") & (df_results["new TM smiles"] == "fail")].shape,
         df_results[(df_results["new TM smiles"] != "fail")].shape,
     )
 
@@ -597,8 +561,7 @@ def main(args):
             continue
         m = Chem.MolFromSmiles(s)
         ion_pairs.append(
-            len(m.GetSubstructMatches(Chem.MolFromSmarts("[*-]~[*-]")))
-            + len(m.GetSubstructMatches(Chem.MolFromSmarts("[*+]~[*+]")))
+            len(m.GetSubstructMatches(Chem.MolFromSmarts("[*-]~[*-]"))) + len(m.GetSubstructMatches(Chem.MolFromSmarts("[*+]~[*+]")))
         )
 
     df_results["ion pairs"] = ion_pairs
@@ -613,9 +576,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="This script takes a dataframe with CSD SMILES as input and tries to make them RDKit parseable"
     )
-    parser.add_argument(
-        "--csd_smiles", type=Path, help="The input dataframe", required=True
-    )
+    parser.add_argument("--csd_smiles", type=Path, help="The input dataframe", required=True)
 
     # Parse arguments
     args = parser.parse_args()
