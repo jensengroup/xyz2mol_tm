@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xyz2mol_tm"
+version = "0.1"
+description = "xyz2mol for TMCs"
+readme = "README.md"
+requires-python = ">=3.8"
+
+[tool.setuptools]
+packages = ["ML", "xyz2mol_tm", "comparing_smiles"]
+
+[tool.ruff]
+# Disable fix for unused imports (`F401`).
+lint.unfixable = ["F401"]
+lint.ignore = ["F401"]

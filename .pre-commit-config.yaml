@@ -1,0 +1,86 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ["--unsafe"]
+      - id: check-added-large-files
+        args: ["--maxkb=45000"]
+
+  - repo: local
+    hooks:
+      - id: jupyisort
+        name: Sorts ipynb imports
+        entry: jupytext --pipe-fmt ".py" --pipe "isort - --multi-line=3 --trailing-comma --force-grid-wrap=0 --use-parentheses --line-width=99 --profile=black" --sync
+        files: \.ipynb$
+        language: python
+
+      - id: jupyblack
+        name: Fixes ipynb format
+        entry: jupytext --pipe-fmt ".py" --pipe "black - --line-length=140" --sync
+        files: \.ipynb$
+        language: python
+
+      - id: jupyflake
+        name: Fixes unnused imports ipynb
+        entry: jupytext --pipe-fmt ".py" --pipe "autoflake --in-place {}" --sync
+        files: \.ipynb$
+        language: python
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    # Ruff version.
+    rev: "v0.8.0"
+    hooks:
+      # Run the linter.
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix, --ignore, E402, --ignore, E501]
+        types_or: [python, pyi]
+        # Run the formatter.
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # - repo: https://github.com/myint/autoflake
+  #   rev: v2.2.0
+  #   hooks:
+  #     - id: autoflake
+  #       name: Removes unused variables
+  #       args:
+  #         - --in-place
+  #         - --remove-all-unused-imports
+  #         - --expand-star-imports
+  #         - --ignore-init-module-imports
+
+  - repo: https://github.com/pre-commit/mirrors-isort
+    rev: v5.10.1
+    hooks:
+      - id: isort
+        name: Sorts imports
+        args: [
+            # Align isort with black formatting
+            "--multi-line=3",
+            "--trailing-comma",
+            "--force-grid-wrap=0",
+            "--use-parentheses",
+            "--profile",
+            "black",
+          ]
+
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        name: Fixes formatting
+        language_version: python3
+
+  - repo: https://github.com/myint/docformatter
+    rev: v1.7.5
+    hooks:
+      - id: docformatter
+        args: [--in-place]
+        name: docformatter
+        description: "Formats docstrings to follow PEP 257."
+        entry: docformatter
+        language: python
+        types: [python]
