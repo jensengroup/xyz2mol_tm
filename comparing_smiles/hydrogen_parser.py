@@ -1,4 +1,3 @@
-import logging
 import os
 import re
 import sys
@@ -10,19 +9,12 @@ from rdkit.Chem import rdMolDescriptors
 RDLogger.DisableLog("rdApp.warning")
 
 
-module_path = os.path.abspath("/home/magstr/git/xyz2mol/")
-if module_path not in sys.path:
-    sys.path.append(module_path)
-
-
 module_path = os.path.abspath("../")
 if module_path not in sys.path:
     sys.path.append(module_path)
 
 __location__ = Path(__file__).absolute()
 __root__ = Path(__file__).parent.parent.absolute()
-
-_logger: logging.Logger = logging.getLogger(__name__)
 
 from xyz2mol_tm import xyz2mol_local
 from xyz2mol_tm.NBO_to_smiles.mol_utils import TRANSITION_METALS, xyz_string_decompose
