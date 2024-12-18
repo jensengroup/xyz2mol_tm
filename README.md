@@ -1,5 +1,7 @@
 # xyz2mol for transition metal complexes
 
+Repo for the publication : [SMILES All Around: Structure to SMILES conversion for Transition Metal Complexes](https://chemrxiv.org/engage/chemrxiv/article-details/676050a56dde43c9085b4ccd)
+
 This is is a working in progress repo where data and code will be gradually updated as the preprint goes through review.
 
 ## [SMILES_csvs](./SMILES_csvs/)
