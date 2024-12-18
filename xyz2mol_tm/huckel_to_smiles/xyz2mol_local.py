@@ -1060,7 +1060,6 @@ def xyz2AC_obabel(atoms, xyz, tolerance=0.45):
     num_atoms = mol.GetNumAtoms()
     AC = np.zeros((num_atoms, num_atoms), dtype=int)
 
-    print(num_atoms)
     for i in range(num_atoms):
         a_i = mol.GetAtomWithIdx(i)
         Rcov_i = pt.GetRcovalent(a_i.GetAtomicNum())
@@ -1080,7 +1079,7 @@ def xyz2AC_obabel(atoms, xyz, tolerance=0.45):
             AC = remove_weakest_bond(mol, i, AC, dMat, pt)
             N_con = np.sum(AC[i, :])
 
-    print(Chem.MolToSmiles(mol))
+    # print(Chem.MolToSmiles(mol))
 
     return AC, mol
 
@@ -1162,10 +1161,6 @@ def canonicalize_smiles(structure_smiles):
     canonical_smiles = Chem.MolToSmiles(mol)
 
     return canonical_smiles
-
-
-def main():
-    return
 
 
 if __name__ == "__main__":
@@ -1281,4 +1276,3 @@ if __name__ == "__main__":
             # smiles = Chem.MolToSmiles(m, isomericSmiles=isomeric_smiles)
 
             smiles = canonicalize_smiles(smiles)
-            print(smiles)

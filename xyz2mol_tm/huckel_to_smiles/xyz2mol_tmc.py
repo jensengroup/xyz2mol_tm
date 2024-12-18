@@ -1,7 +1,7 @@
 "Module for the xyz2mol functionality for TMCs"
 
 import argparse
-import re
+import logging
 import signal
 import subprocess
 from itertools import combinations
@@ -11,14 +11,16 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem import GetPeriodicTable, rdchem, rdEHTTools, rdmolops
 from rdkit.Chem.MolStandardize import rdMolStandardize
+from xyz2mol_local import AC2mol, chiral_stereo_check, read_xyz_file, xyz2AC_obabel
 
+# Import reference lists
 from xyz2mol_tm.NBO_to_smiles.mol_utils import (
     ALLOWED_OXIDATION_STATES,
     TRANSITION_METALS,
     TRANSITION_METALS_NUM,
 )
 
-from .xyz2mol_local import AC2mol, chiral_stereo_check, read_xyz_file, xyz2AC_obabel
+logger = logging.getLogger(__name__)
 
 params = Chem.MolStandardize.rdMolStandardize.MetalDisconnectorOptions()
 params.splitAromaticC = True
@@ -122,13 +124,10 @@ def fix_NO2(smiles):
         if not emol.GetBondBetweenAtoms(a1, a4) and not emol.GetBondBetweenAtoms(
             a3, a4
         ):
-            print(a1, a2, a3, a4)
             tm = emol.GetAtomWithIdx(a4)
             o1 = emol.GetAtomWithIdx(a1)
             n = emol.GetAtomWithIdx(a2)
-            # o2 = emol.GetAtomWithIdx(a3)
             tm_charge = tm.GetFormalCharge()
-            print("old charge = ", tm_charge)
             new_charge = tm_charge - 2
             tm.SetFormalCharge(new_charge)
             n.SetFormalCharge(+1)
@@ -157,7 +156,6 @@ def fix_equivalent_Os(smiles):
     used_atom_ids_1 = []
     used_atom_ids_3 = []
     for atom in emol.GetAtoms():
-        # print(atom.GetSymbol(), atom.GetFormalCharge(), rank, atom.GetIdx())
         if atom.GetAtomicNum() in TRANSITION_METALS_NUM:
             neighbor_idxs = [a.GetIdx() for a in atom.GetNeighbors()]
             for a1, a2, a3 in matches:
@@ -198,7 +196,6 @@ def get_proposed_ligand_charge(ligand_mol, cutoff=-10):
 
     passed, result = rdEHTTools.RunMol(ligand_mol)
     N_occ_orbs = sum(1 for i in result.GetOrbitalEnergies() if i < cutoff)
-    # print(valence_electrons, N_occ_orbs)
     charge = valence_electrons - 2 * N_occ_orbs
     percieved_homo = result.GetOrbitalEnergies()[N_occ_orbs - 1]
     if N_occ_orbs == len(result.GetOrbitalEnergies()):
@@ -208,12 +205,12 @@ def get_proposed_ligand_charge(ligand_mol, cutoff=-10):
     while charge >= 1 and percieved_lumo < -9:
         N_occ_orbs += 1
         charge += -2
-        print("added two more electrons:", charge, percieved_lumo)
+        logger.debug("added two more electrons:", charge, percieved_lumo)
         percieved_lumo = result.GetOrbitalEnergies()[N_occ_orbs]
     while charge < -1 and percieved_homo > -10.2:
         N_occ_orbs -= 1
         charge += 2
-        print("removed two electrons:", charge, percieved_homo)
+        logger.debug("removed two electrons:", charge, percieved_homo)
         percieved_homo = result.GetOrbitalEnergies()[N_occ_orbs - 1]
 
     return charge
@@ -289,14 +286,12 @@ def lig_checks(lig_mol, coordinating_atoms):
       -> partial positive charge on coordinating atom is big red flag
       -> If "bad" partial charges still exists suggest a new charge: add/subtract electrons based on the values of the partial charges
     """
-    # print(Chem.MolToSmiles(lig_mol))
     res_mols = rdchem.ResonanceMolSupplier(lig_mol)
     if len(res_mols) == 0:
         res_mols = rdchem.ResonanceMolSupplier(
             lig_mol, flags=Chem.ALLOW_INCOMPLETE_OCTETS
         )
     # Check for neighbouring coordinating atoms:
-    # print(len(res_mols), Chem.MolToSmiles(res_mols[0]))
     possible_lig_mols = []
 
     for res_mol in res_mols:
@@ -334,7 +329,6 @@ def get_lig_mol(mol, charge, coordinating_atoms):
     )
     if not lig_mol and charge >= 0:
         charge += -2
-        # print("trying new charge:", charge)
         lig_mol = AC2mol(
             mol, AC, atoms, charge, allow_charged_fragments=True, use_atom_maps=False
         )
@@ -342,13 +336,11 @@ def get_lig_mol(mol, charge, coordinating_atoms):
             return None, charge
     if not lig_mol and charge < 0:
         charge += 2
-        # print("trying new charge:", charge)
         lig_mol = AC2mol(
             mol, AC, atoms, charge, allow_charged_fragments=True, use_atom_maps=False
         )
         if not lig_mol:
             charge += -4
-            # print("trying new charge:", charge)
             lig_mol = AC2mol(
                 mol,
                 AC,
@@ -376,7 +368,6 @@ def get_lig_mol(mol, charge, coordinating_atoms):
         ):
             best_res_mol, lowest_pos, lowest_neg = res_mol, N_pos_atoms, N_neg_atoms
     if lowest_pos + lowest_neg == 0:
-        # print("found opt solution")
         return best_res_mol, charge
 
     lig_mol_no_carbene = AC2mol(
@@ -391,7 +382,6 @@ def get_lig_mol(mol, charge, coordinating_atoms):
     allow_carbenes = True
 
     if lig_mol_no_carbene:
-        # print("found solution with no carbene, charge =", charge)
         res_mols_no_carbenes = lig_checks(lig_mol_no_carbene, coordinating_atoms)
         for res_mol, N_pos_atoms, N_neg_atoms, N_aromatic in res_mols_no_carbenes:
             if (
@@ -412,7 +402,7 @@ def get_lig_mol(mol, charge, coordinating_atoms):
                 allow_carbenes = False
 
     if lowest_pos + lowest_neg == 0:
-        # print("found opt solution without carbenes")
+        logger.debug("found opt solution without carbenes")
         return best_res_mol, charge
 
     if lowest_pos - lowest_neg + charge < 0:
@@ -432,7 +422,6 @@ def get_lig_mol(mol, charge, coordinating_atoms):
     if not new_lig_mol:
         return best_res_mol, charge
     new_possible_res_mols = lig_checks(new_lig_mol, coordinating_atoms)
-    # print("charge =", new_charge)
     for res_mol, N_pos_atoms, N_neg_atoms, N_aromatic in new_possible_res_mols:
         if N_aromatic > highest_aromatic:
             best_res_mol, lowest_pos, lowest_neg, highest_aromatic = (
@@ -473,7 +462,7 @@ def get_tmc_mol(xyz_file, overall_charge, with_stereo=False):
             tmc_idx = a.GetIdx()
 
     if tmc_idx is None:
-        print("found no TM - check DisconnectOrganometallics")
+        logger.warning("found no TM - check DisconnectOrganometallics")
         return None
 
     coordinating_atoms = np.nonzero(Chem.rdmolops.GetAdjacencyMatrix(mol)[tmc_idx, :])[
@@ -495,18 +484,15 @@ def get_tmc_mol(xyz_file, overall_charge, with_stereo=False):
         for atom in atoms:
             if atom.GetAtomicNum() in TRANSITION_METALS_NUM:
                 tm_idx = i
-                # print("found TM")
                 break
         else:
             lig_charge = get_proposed_ligand_charge(f)
 
-            # print(lig_charge)
             lig_coordinating_atoms = [
                 a.GetIdx()
                 for a in m.GetAtoms()
                 if a.GetIntProp("__origIdx") in coordinating_atoms
             ]
-            # print(lig_coordinating_atoms)
             lig_mol, lig_charge = get_lig_mol(m, lig_charge, lig_coordinating_atoms)
             if not lig_mol:
                 return None
@@ -515,7 +501,7 @@ def get_tmc_mol(xyz_file, overall_charge, with_stereo=False):
             lig_list.append(lig_mol)
 
     if tm_idx is None:
-        print("found no TM - check DisconnectOrganometallics")
+        logger.warning("found no TM - check DisconnectOrganometallics")
         return None
 
     tm = Chem.RWMol(frag_mols[tm_idx])
@@ -542,10 +528,9 @@ def get_tmc_mol(xyz_file, overall_charge, with_stereo=False):
     dMat = Chem.Get3DDistanceMatrix(emol)
     cut_atoms = []
     for i, j in combinations(coordinating_atoms_idx, 2):
-        # print(i,j)
         bond = emol.GetBondBetweenAtoms(int(i), int(j))
         if bond and abs(dMat[i, tm_idx] - dMat[j, tm_idx]) >= 0.4:
-            print(
+            logger.debug(
                 "Haptic bond pattern with too great distance:",
                 dMat[i, tm_idx],
                 dMat[j, tm_idx],
@@ -597,9 +582,23 @@ if __name__ == "__main__":
         help="The overall charge of the TMC",
         required=True,
     )
+    parser.add_argument(
+        "--log_level",
+        type=str,
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "DISABLE"],
+        default="INFO",
+        help="Set the logging level",
+    )
 
     # Parse arguments
     args = parser.parse_args()
+
+    if args.log_level == "DISABLE":
+        logging.disable(logging.CRITICAL)
+    else:
+        # logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s")
+        logging.basicConfig(format="")
+        logger.setLevel(getattr(logging, args.log_level))
 
     # Stop the function if it runs too long.
     def timeout_handler(num, stack):
@@ -617,4 +616,6 @@ if __name__ == "__main__":
     with open(args.xyz_file.stem + ".txt", "w") as _f:
         _f.write(smiles)
 
-    print(Chem.MolToSmiles(Chem.MolFromSmiles(Chem.MolToSmiles(tmc_mol))))
+    logger.info(
+        f"Output SMILES: {Chem.MolToSmiles(Chem.MolFromSmiles(Chem.MolToSmiles(tmc_mol)))}"
+    )
