@@ -13,6 +13,8 @@ __current__ = Path(__file__).parent.absolute()
 
 PATH_TO_TMQMG = __current__ / Path("../../tmQMg")
 PATH_TO_TMQMG_L = __current__ / Path("../../tmQMg-L")
+PATH_TO_TMQMG = Path("/home/magstr/git/xyz2mol_tm_jensengroup/tmQMg/")
+PATH_TO_TMQMG_L = Path("/home/magstr/git/xyz2mol_tm_jensengroup/tmQMg-L/")
 
 if not PATH_TO_TMQMG_L.exists() or not PATH_TO_TMQMG.exists():
     raise Exception(
@@ -51,14 +53,12 @@ def get_tmQMg_df():
 
 def load_ligand_xyz():
     "Get the dict with tmQMg-L ligand xyz files"
-    if not os.path.isfile(
-        os.path.join(__current__, "data_files/ligands_dict_xyz.json")
-    ):
+    if not os.path.isfile(os.path.join(__current__, "ligands_dict_xyz.json")):
         print("Dict with ligand xyz coordinates does not excist. Creating it now.")
         make_dict_xyz()
 
     # load ligand xyz dict
-    with open(os.path.join(__current__, "data_files/ligands_dict_xyz.json"), "r") as f:
+    with open(os.path.join(__current__, "ligands_dict_xyz.json"), "r") as f:
         xyzs = json.load(f)
 
     return xyzs
@@ -78,7 +78,7 @@ def make_dict_xyz():
             xyzs[xyz.split("\n")[1]] = xyz
 
     # Write to didct
-    with open(os.path.join(__current__, "data_files/ligands_dict_xyz.json"), "w") as f:
+    with open(os.path.join(__current__, "ligands_dict_xyz.json"), "w") as f:
         json.dump(xyzs, f)
     print("Succesfully created the dict of stable ligand complexes")
 

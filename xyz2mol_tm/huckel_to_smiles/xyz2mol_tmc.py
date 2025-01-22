@@ -11,14 +11,58 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem import GetPeriodicTable, rdchem, rdEHTTools, rdmolops
 from rdkit.Chem.MolStandardize import rdMolStandardize
-from xyz2mol_local import AC2mol, chiral_stereo_check, read_xyz_file, xyz2AC_obabel
 
-# Import reference lists
-from xyz2mol_tm.NBO_to_smiles.mol_utils import (
-    ALLOWED_OXIDATION_STATES,
-    TRANSITION_METALS,
-    TRANSITION_METALS_NUM,
+from xyz2mol_tm.huckel_to_smiles.xyz2mol_local import (
+    AC2mol,
+    chiral_stereo_check,
+    read_xyz_file,
+    xyz2AC_obabel,
 )
+
+# fmt: off
+TRANSITION_METALS = ["Sc","Ti","V","Cr","Mn","Fe","Co","La","Ni","Cu","Zn",
+                     "Y","Zr","Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd","Lu",
+                     "Hf","Ta","W","Re","Os","Ir","Pt","Au","Hg",
+]
+
+TRANSITION_METALS_NUM = [21,22,23,24,25,26,27,57,28,29,30,39,40,41,
+                         42,43,44,45,46,47,48,71,72,73,74,75,76,77,78,79,80,
+]
+
+
+ALLOWED_OXIDATION_STATES = {
+    "Sc": [3],
+    "Ti": [3, 4],
+    "V": [2, 3, 4, 5],
+    "Cr": [2, 3, 4, 6],
+    "Mn": [2, 3, 4, 6, 7],
+    "Fe": [2, 3],
+    "Co": [2, 3],
+    "Ni": [2],
+    "Cu": [1, 2],
+    "Zn": [2],
+    "Y": [3],
+    "Zr": [4],
+    "Nb": [3, 4, 5],
+    "Mo": [2, 3, 4, 5, 6],
+    "Tc": [2, 3, 4, 5, 6, 7],
+    "Ru": [2, 3, 4, 5, 6, 7, 8],
+    "Rh": [1, 3],
+    "Pd": [2, 4],
+    "Ag": [1],
+    "Cd": [2],
+    "La": [3],
+    "Hf": [4],
+    "Ta": [3, 4, 5],
+    "W": [2, 3, 4, 5, 6],
+    "Re": [2, 3, 4, 5, 6, 7],
+    "Os": [3, 4, 5, 6, 7, 8],
+    "Ir": [1, 3],
+    "Pt": [2, 4],
+    "Au": [1, 3],
+    "Hg": [1, 2],
+}
+# fmt: on
 
 logger = logging.getLogger(__name__)
 
@@ -462,8 +506,9 @@ def get_tmc_mol(xyz_file, overall_charge, with_stereo=False):
             tmc_idx = a.GetIdx()
 
     if tmc_idx is None:
-        logger.warning("found no TM - check DisconnectOrganometallics")
-        return None
+        raise Exception(
+            "Found no TM in the input file. Please supply an xyz file with a TM"
+        )
 
     coordinating_atoms = np.nonzero(Chem.rdmolops.GetAdjacencyMatrix(mol)[tmc_idx, :])[
         0
@@ -501,8 +546,9 @@ def get_tmc_mol(xyz_file, overall_charge, with_stereo=False):
             lig_list.append(lig_mol)
 
     if tm_idx is None:
-        logger.warning("found no TM - check DisconnectOrganometallics")
-        return None
+        raise Exception(
+            "Found no TM in the input file. Please supply an xyz file with a TM"
+        )
 
     tm = Chem.RWMol(frag_mols[tm_idx])
     tm_ox = overall_charge - total_lig_charge

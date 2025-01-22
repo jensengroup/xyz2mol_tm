@@ -161,7 +161,6 @@ def run_graph_ml(
     training_ids = np.array([data.identifier for data in data_list_train]).flatten()
     test_ids = np.array([data.identifier for data in data_list_test]).flatten()
 
-    # TODO: What is the null model Maria?
     nullmodel_mae = np.mean(np.absolute(test_targets - np.mean(test_targets)))
     print("null model = ", nullmodel_mae)
 

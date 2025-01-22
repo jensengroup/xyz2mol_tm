@@ -6,7 +6,7 @@ This is is a working in progress repo where data and code will be gradually upda
 
 ## [SMILES_csvs](./SMILES_csvs/)
 
-Folder with SMILES datasets
+Folder with TMC SMILES datasets
 
 ## [xyz2mol_tm](./xyz2mol_tm/)
 

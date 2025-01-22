@@ -363,9 +363,7 @@ def get_tmcomplex_ligands():
 
     Indicates the composition of each TMC.
     """
-    if not os.path.exists(
-        os.path.join(__location__, "data_files/tm_complex_ligands.pkl")
-    ):
+    if not os.path.exists(os.path.join(__location__, "tm_complex_ligands.pkl")):
         print("TM complex dict not existing. Creating it now.")
         complex_dict = defaultdict(list)
         df, df2 = data_handler.get_all_ligands_dfs()
@@ -377,16 +375,12 @@ def get_tmcomplex_ligands():
                 for label in labels:
                     complex_dict[label.split("-")[0]].append((row.Index, label))
 
-        with open(
-            os.path.join(__location__, "data_files/tm_complex_ligands.pkl"), "wb"
-        ) as f:
+        with open(os.path.join(__location__, "tm_complex_ligands.pkl"), "wb") as f:
             pickle.dump(complex_dict, f)
         print("Done with creating dict")
 
     # Get dict of compositions of each TMC
-    with open(
-        os.path.join(__location__, "data_files/tm_complex_ligands.pkl"), "rb"
-    ) as f:
+    with open(os.path.join(__location__, "tm_complex_ligands.pkl"), "rb") as f:
         tm_complex_dict = pickle.load(f)
 
     return tm_complex_dict
