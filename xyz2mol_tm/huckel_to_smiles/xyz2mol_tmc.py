@@ -182,7 +182,7 @@ def fix_equivalent_Os(smiles):
     return Chem.MolToSmiles(Chem.MolFromSmiles(Chem.MolToSmiles(mol)))
 
 
-def get_proposed_ligand_charge(ligand_mol, cutoff=-10):
+def get_proposed_ligand_charge(ligand_mol, cutoff=-10, lumo_cutoff=-9, homo_cutoff=-10.2):
     """Runs an extended Hückel calculation for the ligand defined in
     ligand_mol.
 
@@ -192,29 +192,26 @@ def get_proposed_ligand_charge(ligand_mol, cutoff=-10):
     electrons are added (removed). The suggested charge is returned.
     """
     valence_electrons = 0
-    passed, result = rdEHTTools.RunMol(ligand_mol)
+    _, result = rdEHTTools.RunMol(ligand_mol)
     for a in ligand_mol.GetAtoms():
         valence_electrons += atomic_valence_electrons[a.GetAtomicNum()]
 
-    passed, result = rdEHTTools.RunMol(ligand_mol)
-    N_occ_orbs = sum(1 for i in result.GetOrbitalEnergies() if i < cutoff)
-
-    charge = valence_electrons - 2 * N_occ_orbs
-    perceived_homo = result.GetOrbitalEnergies()[N_occ_orbs - 1]
-    if N_occ_orbs == len(result.GetOrbitalEnergies()):
-        perceived_lumo = np.nan
+    Eorbitals = result.GetOrbitalEnergies()
+    n_orbitals = len(result.GetOrbitalEnergies())
+    charges = valence_electrons - 2 * np.arange(n_orbitals)
+    
+    ind_charge_zero = np.where(charges == 0)[0]
+    ind_lumo_options = sorted(set.intersection(
+        set(np.where(Eorbitals < lumo_cutoff)[0]), 
+        set(np.where(Eorbitals > homo_cutoff)[0]-1)
+    ))
+    if len(ind_lumo_options) == 0:
+        if len(ind_charge_zero) == 0:
+            raise ValueError(f"Cannot determine charge for {Chem.MolToSmiles(ligand_mol)}")
+        else:
+            charge = 0
     else:
-        perceived_lumo = result.GetOrbitalEnergies()[N_occ_orbs]
-    while charge >= 1 and perceived_lumo < -9:
-        N_occ_orbs += 1
-        charge += -2
-        print("added two more electrons:", charge, perceived_lumo)
-        perceived_lumo = result.GetOrbitalEnergies()[N_occ_orbs]
-    while charge < -1 and perceived_homo > -10.2:
-        N_occ_orbs -= 1
-        charge += 2
-        print("removed two electrons:", charge, perceived_homo)
-        perceived_homo = result.GetOrbitalEnergies()[N_occ_orbs - 1]
+        charge = int(charges[ind_lumo_options[0] + np.where(Eorbitals[ind_lumo_options] > cutoff)[0][0]])
 
     return charge
 
