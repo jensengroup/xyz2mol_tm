@@ -16,7 +16,7 @@ PATH_TO_TMQMG_L = __current__ / Path("../../tmQMg-L")
 
 if not PATH_TO_TMQMG_L.exists() or not PATH_TO_TMQMG.exists():
     raise Exception(
-        "tmQMg-L or tmQMg does not exist. Please download these repos and put them at the root level"
+        "tmQMg-L or tmQMg does not exist. Please download these repos and put them at the root level of this repository"
     )
 
 ligands_xyz = PATH_TO_TMQMG_L / "xyz/ligands_xyzs.xyz"
