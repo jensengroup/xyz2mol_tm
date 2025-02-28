@@ -191,6 +191,9 @@ def get_proposed_ligand_charge(ligand_mol, cutoff=-10, lumo_cutoff=-9, homo_cuto
     1 (<-1) and the LUMO (HOMO) is low (high) in energy, two additional
     electrons are added (removed). The suggested charge is returned.
     """
+    if np.all(ligand_mol.GetConformer().GetPositions() == 0):
+        raise ValueError("Ligand molecule does not have coordinates")
+    
     valence_electrons = 0
     _, result = rdEHTTools.RunMol(ligand_mol)
     for a in ligand_mol.GetAtoms():
