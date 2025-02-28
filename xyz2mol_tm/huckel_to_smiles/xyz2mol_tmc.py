@@ -6,6 +6,7 @@ import signal
 import subprocess
 from itertools import combinations
 from pathlib import Path
+import warnings
 
 import numpy as np
 from rdkit import Chem
@@ -214,8 +215,12 @@ def get_proposed_ligand_charge(ligand_mol, cutoff=-10, lumo_cutoff=-9, homo_cuto
         else:
             charge = 0
     else:
-        charge = int(charges[ind_lumo_options[0] + np.where(Eorbitals[ind_lumo_options] > cutoff)[0][0]])
-
+        ind_cutoff = np.where(Eorbitals[ind_lumo_options] > cutoff)[0]
+        if ind_cutoff:
+            charge = int(charges[ind_lumo_options[0] + ind_cutoff[0]])
+        else:
+            warnings.warn(f"All candidate LUMO orbitals are below the cutoff, {cutoff}: {Eorbitals[ind_lumo_options]}")
+            charge = int(charges[ind_lumo_options[0]])
     return charge
 
 
