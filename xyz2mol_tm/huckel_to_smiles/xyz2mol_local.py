@@ -135,6 +135,7 @@ atomic_valence[6] = [4, 2]
 atomic_valence[7] = [3, 4]
 atomic_valence[8] = [2, 1, 3]  # [2,1,3]
 atomic_valence[9] = [1]
+atomic_valence[12] = [2]
 atomic_valence[13] = [3, 4]
 atomic_valence[14] = [4]
 atomic_valence[15] = [3, 5]  # [5,4,3]
@@ -190,6 +191,7 @@ atomic_valence_electrons[6] = 4
 atomic_valence_electrons[7] = 5
 atomic_valence_electrons[8] = 6
 atomic_valence_electrons[9] = 7
+atomic_valence_electrons[12] = 2
 atomic_valence_electrons[13] = 3
 atomic_valence_electrons[14] = 4
 atomic_valence_electrons[15] = 5
@@ -591,7 +593,7 @@ def get_UA_pairs(UA, AC, DU, use_graph=True):
 def AC2BO(
     AC, atoms, charge, allow_charged_fragments=True, use_graph=True, allow_carbenes=True
 ):
-    """Implemenation of algorithm shown in Figure 2.
+    """Implementation of algorithm shown in Figure 2.
 
     UA: unsaturated atoms
 
@@ -608,7 +610,7 @@ def AC2BO(
     AC_valence = list(AC.sum(axis=1))
 
     for i, (atomicNum, valence) in enumerate(zip(atoms, AC_valence)):
-        # valence can't be smaller than number of neighbourgs
+        # valence can't be smaller than number of neighbours
         possible_valence = [x for x in atomic_valence[atomicNum] if x >= valence]
         if atomicNum == 6 and valence == 1:
             possible_valence.remove(2)
@@ -876,8 +878,8 @@ def xyz2AC(atoms, xyz, charge, use_huckel=False, use_obabel=False):
         charge - molecule charge
 
     optional:
-        use_huckel - Use Huckel method for atom connecitivty
-        use_obabel - Use Opne Babel method for atom connectivity
+        use_huckel - Use Huckel method for atom connectivity
+        use_obabel - Use Open Babel method for atom connectivity
 
     returns
         ac - atom connectivity matrix
@@ -979,7 +981,7 @@ def xyz2AC_huckel(atomicNumList, xyz, charge):
     for i in range(num_atoms):
         for j in range(i + 1, num_atoms):
             pair_pop = abs(tri[j, i])
-            if pair_pop >= 0.2:  # arbitry cutoff for bond. May need adjustment
+            if pair_pop >= 0.2:  # arbitrary cutoff for bond. May need adjustment
                 AC[i, j] = 1
                 AC[j, i] = 1
 
@@ -1074,6 +1076,8 @@ def xyz2AC_obabel(atoms, xyz, tolerance=0.45):
     for i in range(num_atoms):
         a_i = mol.GetAtomWithIdx(i)
         N_con = np.sum(AC[i, :])
+        if a_i.GetAtomicNum() not in atomic_valence:
+            raise ValueError(f"Atomic number is not yet supported: {a_i.GetAtomicNum()}")
         while N_con > max(atomic_valence[a_i.GetAtomicNum()]):
             # print("removing longest bond")
             AC = remove_weakest_bond(mol, i, AC, dMat, pt)
