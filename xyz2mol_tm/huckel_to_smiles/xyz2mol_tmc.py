@@ -501,7 +501,7 @@ def separate_ligands(mol, overall_charge):
     """Separate Ligands from transition metal and determine appropriate charge
 
     Args:
-        mol (rdkit.Chem.rdchem.Mol): _description_
+        mol (rdkit.Chem.rdchem.Mol): Ligand molecule
         overall_charge (int): Overall charge of the complex
 
     Raises:
