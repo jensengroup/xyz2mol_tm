@@ -6,6 +6,7 @@ import signal
 import subprocess
 from itertools import combinations
 from pathlib import Path
+import warnings
 
 import numpy as np
 from rdkit import Chem
@@ -186,7 +187,7 @@ def fix_NO2(smiles):
 
 def fix_equivalent_Os(smiles):
     """Localizes and fixes where a neutral atom is coordinating to the metal
-    but connected ro a negatively charged atom through resonane.
+    but connected to a negatively charged atom through resonance.
 
     The charge is moved to the coordinating atom and charges fixed
     accordingly.
@@ -224,55 +225,66 @@ def fix_equivalent_Os(smiles):
     return Chem.MolToSmiles(Chem.MolFromSmiles(Chem.MolToSmiles(mol)))
 
 
-def get_proposed_ligand_charge(ligand_mol, cutoff=-10):
+def get_proposed_ligand_charge(ligand_mol, cutoff=-10, lumo_cutoff=-9, homo_cutoff=-10.2):
     """Runs an extended Hückel calculation for the ligand defined in
     ligand_mol.
 
     A suggested charge is found by filling electrons in orbitals <-10eV
-    and omparing with total number of valence electrons. If charge is >=
+    and comparing with total number of valence electrons. If charge is >=
     1 (<-1) and the LUMO (HOMO) is low (high) in energy, two additional
     electrons are added (removed). The suggested charge is returned.
     """
+    if np.all(ligand_mol.GetConformer().GetPositions() == 0):
+        raise ValueError("Ligand molecule does not have coordinates")
+    
     valence_electrons = 0
-    passed, result = rdEHTTools.RunMol(ligand_mol)
+    _, result = rdEHTTools.RunMol(ligand_mol)
     for a in ligand_mol.GetAtoms():
         valence_electrons += atomic_valence_electrons[a.GetAtomicNum()]
 
-    passed, result = rdEHTTools.RunMol(ligand_mol)
-    N_occ_orbs = sum(1 for i in result.GetOrbitalEnergies() if i < cutoff)
-    charge = valence_electrons - 2 * N_occ_orbs
-    percieved_homo = result.GetOrbitalEnergies()[N_occ_orbs - 1]
-    if N_occ_orbs == len(result.GetOrbitalEnergies()):
-        percieved_lumo = np.nan
+    Eorbitals = result.GetOrbitalEnergies()
+    n_orbitals = len(result.GetOrbitalEnergies())
+    charges = valence_electrons - 2 * np.arange(n_orbitals)
+    
+    ind_charge_zero = np.where(charges == 0)[0]
+    ind_lumo_options = sorted(set.intersection(
+        set(np.where(Eorbitals < lumo_cutoff)[0]), 
+        set(np.where(Eorbitals > homo_cutoff)[0]-1)
+    ))
+    if len(ind_lumo_options) == 0:
+        if len(ind_charge_zero) == 0:
+            raise ValueError(f"Cannot determine charge for {Chem.MolToSmiles(ligand_mol)}")
+        else:
+            charge = 0
     else:
-        percieved_lumo = result.GetOrbitalEnergies()[N_occ_orbs]
-    while charge >= 1 and percieved_lumo < -9:
-        N_occ_orbs += 1
-        charge += -2
-        logger.debug("added two more electrons:", charge, percieved_lumo)
-        percieved_lumo = result.GetOrbitalEnergies()[N_occ_orbs]
-    while charge < -1 and percieved_homo > -10.2:
-        N_occ_orbs -= 1
-        charge += 2
-        logger.debug("removed two electrons:", charge, percieved_homo)
-        percieved_homo = result.GetOrbitalEnergies()[N_occ_orbs - 1]
-
+        ind_cutoff = np.where(Eorbitals[ind_lumo_options] > cutoff)[0]
+        if ind_cutoff:
+            charge = int(charges[ind_lumo_options[0] + ind_cutoff[0]])
+        else:
+            warnings.warn(f"All candidate LUMO orbitals are below the cutoff, {cutoff}: {Eorbitals[ind_lumo_options]}")
+            charge = int(charges[ind_lumo_options[0]])
     return charge
 
 
 def get_basic_mol(xyz_file, overall_charge):
-    """A basic mol-object (that can be usedto do an extended Hückel calculation
+    """A basic mol-object (that can be used to do an extended Hückel calculation
     is constructed based on the adjacency matrix evaluated from the xyz-
     coordinates.
 
-    All bonds are single bonds, and charges are only asigned if
-    necessary to work with it, i.e. a Nitrogen with four neihbors gets a
+    All bonds are single bonds, and charges are only assigned if
+    necessary to work with it, i.e. a Nitrogen with four neighbors gets a
     +1 charge, Boron with 4 neighbors gets a -1 charge and oxygen with
     three neighbors gets a +1 charge.
     """
-    atoms, _, xyz_coords = read_xyz_file(xyz_file)
 
-    # AC, mol = xyz2AC_huckel(atoms, xyz_coords, overall_charge)
+    if isinstance(xyz_file, str):
+        atoms, _, xyz_coords = read_xyz_file(xyz_file)
+    else:
+        xyz_file = np.array(xyz_file)
+        atoms = [int(x) for x in xyz_file[:,0]]
+        xyz_coords = [list(x) for x in xyz_file[:, 1:]]
+
+    #AC, mol = xyz2AC_huckel(atoms, xyz_coords, overall_charge)
     AC, mol = xyz2AC_obabel(atoms, xyz_coords)
     tm_indxs = [atoms.index(tm) for tm in TRANSITION_METALS_NUM if tm in atoms]
 
@@ -485,19 +497,23 @@ def get_lig_mol(mol, charge, coordinating_atoms):
     return best_res_mol, charge
 
 
-def get_tmc_mol(xyz_file, overall_charge, with_stereo=False):
-    """Get TMC mol object from given xyz file.
+def separate_ligands(mol, overall_charge):
+    """Separate Ligands from transition metal and determine appropriate charge
 
     Args:
-        xyz_file (str) : Path to TMC xyz file
-        overall_charge (int): Overall charge of TMC
-        with_stereo (bool): Whether to percieve stereochemistry from the 3D data
+        mol (rdkit.Chem.rdchem.Mol): Ligand molecule
+        overall_charge (int): Overall charge of the complex
+
+    Raises:
+        ValueError: If molecule does not contain a transition metal
 
     Returns:
-        tmc_mol (rdkit.Chem.rdchem.Mol): TMC mol object
+        tm_info (tuple(rdkit.Chem.rdchem.Mol, int)): An RDKit Molecule of the transition metal center and it's formal charge
+        ligand_info (list(tuple(rdkit.Chem.rdchem.Mol, int))): A list of ligands where each entry is composed of an
+        RDKit Molecule of the transition metal center and it's formal charge
+        
     """
-    mol = get_basic_mol(xyz_file, overall_charge)
-
+    
     tmc_idx = None
     for a in mol.GetAtoms():
         a.SetIntProp("__origIdx", a.GetIdx())
@@ -521,14 +537,17 @@ def get_tmc_mol(xyz_file, overall_charge, with_stereo=False):
     frag_mols = rdmolops.GetMolFrags(frags, asMols=True)
 
     total_lig_charge = 0
-    tm_idx = None
-    lig_list = []
+    flag_tm = False
+    lig_info = []
     for i, f in enumerate(frag_mols):
         m = Chem.Mol(f)
         atoms = m.GetAtoms()
         for atom in atoms:
             if atom.GetAtomicNum() in TRANSITION_METALS_NUM:
-                tm_idx = i
+                if len(atoms) > 1:
+                    raise ValueError("Not all ligands were separated.")
+                flag_tm = True
+                tm_mol = Chem.RWMol(frag_mols[i])
                 break
         else:
             lig_charge = get_proposed_ligand_charge(f)
@@ -543,9 +562,9 @@ def get_tmc_mol(xyz_file, overall_charge, with_stereo=False):
                 return None
 
             total_lig_charge += lig_charge
-            lig_list.append(lig_mol)
+            lig_info.append((lig_mol, lig_charge))
 
-    if tm_idx is None:
+    if not flag_tm:
         raise Exception(
             "Found no TM in the input file. Please supply an xyz file with a TM"
         )
@@ -553,13 +572,50 @@ def get_tmc_mol(xyz_file, overall_charge, with_stereo=False):
     tm = Chem.RWMol(frag_mols[tm_idx])
     tm_ox = overall_charge - total_lig_charge
 
-    len(tm.GetAtoms())
-
-    for a in tm.GetAtoms():
+    for a in tm_mol.GetAtoms():
         if a.GetAtomicNum() in TRANSITION_METALS_NUM:
             a.SetFormalCharge(tm_ox)
 
-    for lmol in lig_list:
+    return (tm_mol, tm_ox), lig_info
+
+
+def get_tmc_mol(xyz_file, overall_charge, with_stereo=False):
+    """Get TMC mol object from given xyz file.
+
+    Args:
+        xyz_file (str/numpy.ndarray): Representation of a transition metal complex as either a:
+        
+        - Path to TMC xyz file
+        - Matrix containing atomic numbers in the first column, and coordinates in the following three
+        
+        overall_charge (int): Overall charge of TMC
+        with_stereo (bool): Whether to perceive stereochemistry from the 3D data
+
+    Returns:
+        tmc_mol (rdkit.Chem.rdchem.Mol): TMC mol object
+    """
+
+    mol = get_basic_mol(xyz_file, overall_charge)
+
+    tmc_idx = None
+    for a in mol.GetAtoms():
+        a.SetIntProp("__origIdx", a.GetIdx())
+        if a.GetAtomicNum() in TRANSITION_METALS_NUM:
+            # tm_atom = a.GetSymbol()
+            tmc_idx = a.GetIdx()
+
+    if tmc_idx is None:
+        print("found no TM - check DisconnectOrganometallics")
+        return None
+
+    coordinating_atoms = np.nonzero(Chem.rdmolops.GetAdjacencyMatrix(mol)[tmc_idx, :])[
+        0
+    ]
+    tm_info, lig_info = separate_ligands(mol, overall_charge)
+    tm = tm_info[0]
+
+    # Reform complex with ligands
+    for lmol, _ in lig_info:
         tm = Chem.CombineMols(tm, lmol)
 
     emol = Chem.RWMol(tm)
@@ -571,6 +627,8 @@ def get_tmc_mol(xyz_file, overall_charge, with_stereo=False):
     tm_idx = [
         a.GetIdx() for a in emol.GetAtoms() if a.GetIntProp("__origIdx") == tmc_idx
     ][0]
+    
+    # Remove extraneously detected coordinated atoms
     dMat = Chem.Get3DDistanceMatrix(emol)
     cut_atoms = []
     for i, j in combinations(coordinating_atoms_idx, 2):
@@ -597,6 +655,7 @@ def get_tmc_mol(xyz_file, overall_charge, with_stereo=False):
             ):
                 coordinating_atoms_idx.remove(i)
 
+    # Add dative bonds if a single bond is not present
     for i in coordinating_atoms_idx:
         if emol.GetBondBetweenAtoms(i, tm_idx):
             continue
